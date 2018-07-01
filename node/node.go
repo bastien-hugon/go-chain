@@ -11,7 +11,13 @@ import (
 type Node struct {
 	Listener net.Listener
 	NodeList list.List
-	Map      map[string]func(string)
+	Map      map[string]func(string, net.Conn)
+}
+
+func (node *Node) addNodeToList(ip string, conn net.Conn) {
+	node.NodeList.PushBack(ip)
+	msg := fmt.Sprintf("Received IP: %s\n", ip)
+	conn.Write([]byte(msg))
 }
 
 func (node *Node) Construct() {
@@ -22,13 +28,10 @@ func (node *Node) Construct() {
 		os.Exit(1)
 	}
 	fmt.Printf("Listening on *:7179\n")
+	node.Map = make(map[string]func(string, net.Conn))
 	node.NodeList.Init()
 	node.Map["Node"] = node.addNodeToList
-	node.Map["Block"] = node.addNodeToList
-}
-
-func (node *Node) addNodeToList(ip string) {
-	node.NodeList.PushBack(ip)
+	//	node.Map["Block"] = node.addNodeToList
 }
 
 func (node *Node) comunicate(conn net.Conn) {
@@ -39,10 +42,14 @@ func (node *Node) comunicate(conn net.Conn) {
 		if err != nil || len == 0 {
 			return
 		}
+		buf[len-1] = '\000'
 		buffer := string(buf)
+		buffer = strings.Trim(buffer, "\n")
 		key := strings.Split(buffer, " ")
 		if _, ok := node.Map[key[0]]; ok {
-			node.Map[key[0]](key[1])
+			node.Map[key[0]](key[1], conn)
+		} else {
+			conn.Write([]byte("Bad command.\n"))
 		}
 	}
 }
