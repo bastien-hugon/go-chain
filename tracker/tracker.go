@@ -30,6 +30,12 @@ func (tracker *Tracker) removeNodeFromList(cmd string, conn net.Conn) {
 func (tracker *Tracker) addNodeToList(cmd string, conn net.Conn) {
 	ip := conn.RemoteAddr().String()
 	ip = strings.Split(ip, ":")[0]
+	for _, v := range tracker.NodeList {
+		if v == ip {
+			conn.Write([]byte("KO\n"))
+			return
+		}
+	}
 	tracker.NodeList = append(tracker.NodeList, ip)
 	fmt.Printf("Registered IP: %s\n", ip)
 	conn.Write([]byte("OK\n"))

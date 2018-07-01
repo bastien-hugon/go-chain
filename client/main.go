@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -30,6 +32,21 @@ func getNodeList(ip string) ([]string, error) {
 	return ret, nil
 }
 
+func saveBlock(ip string, data string) error {
+	addr := strings.Join([]string{ip, "7179"}, ":")
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Send: data[" + data + "] to " + ip)
+	defer conn.Close()
+	_, err = conn.Write([]byte("Create " + data + "\n"))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		os.Exit(84)
@@ -39,5 +56,14 @@ func main() {
 		fmt.Errorf("Error while retrieving the node list")
 		panic(err)
 	}
-	println("Node Ips: " + strings.Join(nodeList, ","))
+	bytes, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		panic(err)
+	}
+	base64Data := base64.StdEncoding.EncodeToString(bytes)
+	fmt.Println("Data= " + base64Data)
+	err = saveBlock(nodeList[0], base64Data)
+	if err != nil {
+		panic(err)
+	}
 }

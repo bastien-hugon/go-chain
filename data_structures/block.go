@@ -33,7 +33,10 @@ func (block *Block) BuildHash() {
 }
 
 func (block *Block) SaveBlock(path string) error {
-	json, _ := json.Marshal(block)
+	json, err := json.Marshal(block)
+	if err != nil {
+		return err
+	}
 	filename := path + block.Timestamp + "-" + block.Hash + ".zip"
 	out, err := os.Create(filename)
 	if err != nil {
