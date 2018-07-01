@@ -88,6 +88,12 @@ func (node *Node) refreshNodeList(conn net.Conn) {
 		}
 		node.NodeList = ret
 		fmt.Println("Node Ips: " + strings.Join(ret, ","))
+		for _, v := range node.NodeList {
+			conn, err := net.Dial("tcp", v+":7179")
+			if err == nil {
+				node.Conns = append(node.Conns, conn)
+			}
+		}
 	}
 }
 
