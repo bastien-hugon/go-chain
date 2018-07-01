@@ -17,6 +17,7 @@ type Node struct {
 	NodeList []string
 	Map      map[string]func(string, net.Conn)
 	Blocks   []block.Block
+	Conns    []net.Conn
 }
 
 func (node *Node) addNodeToList(data string, conn net.Conn) {
@@ -36,15 +37,8 @@ func (node *Node) addNodeToList(data string, conn net.Conn) {
 }
 
 func (node *Node) broadcastBlock(data string) {
-	for i := 0; i < len(node.NodeList); i++ {
-		conn, err := net.Dial("tcp", node.NodeList[i]+":80")
-		defer conn.Close()
-		if err == nil {
-			conn.Write([]byte(data))
-		} else {
-			node.NodeList = append(node.NodeList[:i], node.NodeList[i+1:]...)
-			i--
-		}
+	for i := 0; i < len(node.Conns); i++ {
+		node.Conns[i].Write([]byte(data))
 	}
 }
 
@@ -83,6 +77,20 @@ func (node *Node) createBlock(data string, conn net.Conn) {
 	fmt.Printf("%s\n", string(json))
 }
 
+func (node *Node) refreshNodeList(conn net.Conn) {
+	for {
+		buf := make([]byte, 4096)
+		len, err := conn.Read(buf)
+		ret := []string{}
+		err = json.Unmarshal(buf[:len], &ret)
+		if err != nil {
+			return
+		}
+		node.NodeList = ret
+		fmt.Println("Node Ips: " + strings.Join(ret, ","))
+	}
+}
+
 func (node *Node) connectTracker(tracker string) {
 	conn, err := net.Dial("tcp", tracker+":7180")
 	if err == nil {
@@ -93,18 +101,8 @@ func (node *Node) connectTracker(tracker string) {
 			fmt.Printf("Tracker error on %s:7180\n", tracker)
 			os.Exit(1)
 		}
-		//time.Sleep(100 * time.Millisecond)
 		fmt.Fprintf(conn, "GetNodeList\n")
-		buf = make([]byte, 4096)
-		len, err = conn.Read(buf)
-		ret := []string{}
-		err = json.Unmarshal(buf[:len], &ret)
-		if err != nil {
-			fmt.Printf("Tracker error on %s:7180\n", tracker)
-			os.Exit(1)
-		}
-		node.NodeList = ret
-		fmt.Println("Node Ips: " + strings.Join(ret, ","))
+		go node.refreshNodeList(conn)
 	} else {
 		fmt.Printf("No Tracker Found on %s:7180\n", tracker)
 		os.Exit(1)
@@ -174,6 +172,7 @@ func (node *Node) Start() {
 			fmt.Printf("Error on Accept\n")
 			os.Exit(1)
 		}
+		node.Conns = append(node.Conns, conn)
 		go node.comunicate(conn)
 	}
 }
